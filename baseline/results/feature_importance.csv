@@ -1,0 +1,17 @@
+feature,importance
+orig_ip_bytes,0.23427333333333328
+duration,0.178135
+id.resp_p,0.08971833333333332
+orig_pkts,0.08348999999999997
+history,0.005638333333333301
+conn_state,0.0005249999999999422
+id.orig_p,0.00015666666666664942
+resp_pkts,1.666666666666483e-06
+local_orig,0.0
+local_resp,0.0
+missed_bytes,0.0
+resp_ip_bytes,0.0
+orig_bytes,0.0
+resp_bytes,0.0
+service,0.0
+proto,-1.666666666666483e-06

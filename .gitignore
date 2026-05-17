@@ -18,9 +18,6 @@ __pycache__/
 .venv/
 venv/
 
-# Materials
-/materials
-
 # Data
 /data
 
@@ -28,3 +25,9 @@ venv/
 .env
 .env.local
 .env.*.local
+
+generated_code/glm-5.1/zh_v1
+
+generated_code/kimi-k2.6
+
+generated_code/minimax-m2.7

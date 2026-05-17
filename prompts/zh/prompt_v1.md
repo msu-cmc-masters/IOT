@@ -210,11 +210,51 @@ FGSM（Fast Gradient Sign Method）是最经典的白盒对抗攻击方法。它
 - 使用函数封装各步骤，函数名有明确的语义
 - 关键步骤输出进度信息（print），方便运行时了解进度
 - 每个部分开头用 print 输出一段简短的原理说明
-- 所有图表保存为 PNG 文件到 `plots/` 目录
+- 所有图表保存为 PNG 文件到 `plots/` 目录（`plots/` 与 `.py` 文件同级）
 - 使用 `argparse` 支持命令行参数：
   - `--data_path`：数据集目录路径，默认 `data/`（从该目录读取所有 CSV 文件）
   - `--test_size`：测试集比例，默认 0.2
   - `--epsilon`：FGSM 扰动强度，默认 0.05（若指定则跳过 ε 扫描，直接用该值）
+
+## 输出目录规范
+
+- 生成的 `.py` 程序应放置在 `generated_code/{模型名称}/{语言}_{版本}/` 目录下
+  - 示例：`generated_code/DS_V4pro/zh_v1/prompt_v1.py`（DS V4pro 模型 + 中文 + v1 版本）
+- 程序运行时，所有 PNG 图表输出到该目录下的 `plots/` 子目录
+  - 示例：`generated_code/DS_V4pro/zh_v1/plots/`
+- 使用 `os.path.dirname(os.path.abspath(__file__))` 定位脚本所在目录，确保 `plots/` 与脚本同级
+
+---
+
+## 综合对比表格
+
+在程序最后，生成一张**综合分析总结表**（PNG 格式），用 matplotlib 的 `table` 功能绘制，汇总所有关键结果，方便直接插入论文或报告。
+
+表格包含以下四个分区：
+
+### 表格内容
+
+| 分区 | 行内容 |
+| --- | --- |
+| **模型性能对比** | Accuracy、Precision、Recall、F1-score，并排展示 MLP / RF / MLP(攻击后) 三个模型的指标 |
+| **对抗攻击影响** | 最佳 ε 值、攻击成功率、MLP 的 F1 下降幅度 |
+| **特征重要性 Top-10** | MLP 与 RF 的 Top-10 交集数量（如 8/10）、MLP Top-3 特征名、RF Top-3 特征名 |
+| **结论** | 最佳分类模型名称及 F1、MLP 鲁棒性评估（FGSM 使 F1 下降百分比） |
+
+### 样式要求
+
+- 使用 matplotlib 绘制，保存为 `plots/summary_table.png`，DPI ≥ 200
+- 表头使用蓝色背景白色文字（`#4472C4`），分区标题行使用浅蓝背景（`#D9E2F3`）加粗
+- 四列：`指标`、`MLP`、`Random Forest`、`MLP (攻击后)`
+- 表格标题："网络流量恶意软件检测 —— 综合分析总结表"
+
+### 字体要求
+
+- 必须配置中文字体，避免乱码：
+  - macOS: `PingFang SC`
+  - Windows: `Microsoft YaHei`
+  - Linux: `WenQuanYi Micro Hei` 或 `Noto Sans CJK SC`
+- 设置 `axes.unicode_minus = False` 解决负号显示异常
 
 ---
 
@@ -269,4 +309,9 @@ FGSM（Fast Gradient Sign Method）是最经典的白盒对抗攻击方法。它
   F1     0.936              0.507
 [3.5] 结论：FGSM 白盒攻击使 MLP 的 F1 从 0.936 降至 0.507，下降 45.8%。
   MLP 虽然有梯度可用（能用白盒攻击），但模型本身对微小扰动缺乏抵抗力。
+
+========================================
+综合对比表格
+========================================
+  综合对比表格已保存: plots/summary_table.png
 ```

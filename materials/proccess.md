@@ -2,15 +2,15 @@
 
 ## 作业目标
 
-验证**仅通过 LLM 对话**（prompt）能否生成可用的网络恶意流量检测 Python 程序，并与手写模型对比。
+验证**仅通过 LLM 对话**（prompt）能否生成可用的网络恶意流量检测 Python 程序，并与手写 baseline 对比。
 
-采用方法：MLP 分类器 + Permutation Importance 可解释性分析 + FGSM 对抗攻击。
+采用方法：MLP + Random Forest 分类器、Permutation Importance 可解释性分析，以及针对 MLP 的 FGSM / PGD 风格对抗攻击实验。
 
 ## 背景参考：2025 届论文
 
 [Егоров, М. Э., et al. "Объяснения моделей машинного обучения и состязательные атаки." *International Journal of Open Information Technologies* 13.9 (2025): 50-59.](https://github.com/lava-aaa/iot_hw)
 
-论文做了类似的事情：用 Random Forest 做 IoT 流量分类，用 SHAP 解释模型，再基于解释结果做对抗攻击。我们沿用相同的思路框架（分类 → 解释 → 攻击），但具体方法替换为 MLP + Permutation Importance + FGSM。
+论文做了类似的事情：用 Random Forest 做 IoT 流量分类，用 SHAP 解释模型，再基于解释结果做对抗攻击。我们沿用相同的思路框架（分类 → 解释 → 攻击），但具体方法替换为 MLP / Random Forest + Permutation Importance + 梯度对抗攻击。
 
 ## 数据集
 
@@ -43,7 +43,7 @@ for file in os.listdir(path):
 
 | 项目 | 详情 |
 |---|---|
-| 文件 | `data/CTU-IoT-Malware-Capture-*.csv`（12 个文件） |
+| 文件 | `data/CTU-IoT-Malware-Capture-*-1conn.log.labeled.csv`（12 个文件） |
 | 数据总量 | 约 25,010,000 条 |
 | 特征 | 23 列（8 个数值 + 15 个字符串/类别） |
 | 标签列 | `label`：Benign（正常）与多种恶意类型 |
@@ -78,7 +78,7 @@ for file in os.listdir(path):
 | 4. 数据预处理 | 合并多个 CSV、编码字符串列、处理类别不均衡、标准化 | 清洗后的训练/测试集 |
 | 5. 跑通 Baseline 分类器 | 手写 MLP + Random Forest 两个分类器 | 基准指标 |
 | 6. 跑通 Baseline 解释 | 手写 Permutation Importance 分析 | 基准特征重要性排序 |
-| 7. 跑通 Baseline 攻击 | 手写 FGSM 对抗攻击 | 基准攻击成功率 |
+| 7. 跑通 Baseline 攻击 | 手写 PGD 风格对抗攻击，并保留攻击前后指标 | 基准攻击成功率与对比图 |
 
 ---
 
@@ -87,7 +87,7 @@ for file in os.listdir(path):
 | 步骤 | 做什么 | 产出 |
 |---|---|---|
 | 7. 写 Prompt | 中文 / 英文 / 俄文各一版，语义等价 | 三个 prompt 文件 |
-| 8. 小范围试跑 | 扔给 GPT 和 Claude，看初始输出能否运行 | 初步反馈 |
+| 8. 小范围试跑 | 扔给 `gpt-5.5` 和 `DS_V4pro`，看初始输出能否运行 | 初步反馈 |
 
 ### Prompt 必须覆盖的三部分
 
@@ -99,7 +99,14 @@ for file in os.listdir(path):
 
 ## 阶段三：与 LLM 对话迭代（约 2-3 天）
 
-对 **GPT** 和 **Claude** 分别走：发 prompt → 拿代码 → 本地运行 → 贴报错 → 修改 → 再运行，反复直到代码正常运行并输出合理指标。
+对 **gpt-5.5** 和 **DS_V4pro** 分别走：发 prompt → 拿代码 → 本地运行 → 贴报错 → 修改 → 再运行，反复直到代码正常运行并输出合理指标。
+
+当前仓库已保留两类主要 LLM 的中 / 英 / 俄三语 `v1` 结果：
+
+- `generated_code/gpt-5.5/{zh_v1,en_v1,ru_v1}/prompt_v1.py`
+- `generated_code/DS_V4pro/{zh_v1,en_v1,ru_v1}/prompt_v1.py`
+
+工作区中还保留了 `kimi-k2.6`、`minimax-m2.7`、`glm-5.1` 的中文版本作为扩展尝试；这些目录目前写在 `.gitignore` 中，不作为主线提交材料。
 
 ---
 
@@ -107,9 +114,16 @@ for file in os.listdir(path):
 
 | 对比维度 | 具体指标 |
 |---|---|
-| GPT vs Claude | 分类指标、PI 特征排序一致性、FGSM 攻击成功率、代码质量 |
+| gpt-5.5 vs DS_V4pro | 分类指标、PI 特征排序一致性、FGSM 攻击成功率、代码质量 |
 | 中文 vs 英文 vs 俄文 Prompt | 三种语言 prompt 产出的模型指标是否有显著差异 |
-| AI 生成 vs 手写 Baseline | 分类指标差距、PI 排序一致性、FGSM 攻击成功率差距 |
+| AI 生成 vs 手写 Baseline | 分类指标差距、PI 排序一致性、FGSM / PGD 风格攻击结果差距 |
+
+### 当前结果快照
+
+- `baseline/results/model_comparison.csv`：Random Forest Accuracy / F1 约为 0.9997，MLP Accuracy / F1 约为 0.9990。
+- `baseline/results/feature_importance.csv`：当前 RF Permutation Importance 的靠前特征包括 `orig_ip_bytes`、`duration`、`id.resp_p`、`orig_pkts`。
+- `baseline/results/pgd_results_optimized.csv`：记录了 ε = 0.5 到 10.0 的 PGD 风格攻击扫描结果。
+- `generated_code/gpt-5.5/` 与 `generated_code/DS_V4pro/`：各语言版本均已保存混淆矩阵、Permutation Importance、ROC、FGSM 成功率和 summary table 图表。
 
 ---
 
@@ -125,9 +139,9 @@ for file in os.listdir(path):
 2. 任务介绍（分类 → 解释 → 攻击三条链路）
 3. 数据集概览
 4. Prompt 设计思路（中 / 英 / 俄）
-5. GPT 对话迭代过程 + 最终指标
-6. Claude 对话迭代过程 + 最终指标
-7. GPT vs Claude 全维度对比
+5. gpt-5.5 对话迭代过程 + 最终指标
+6. DS_V4pro 对话迭代过程 + 最终指标
+7. gpt-5.5 vs DS_V4pro 全维度对比
 8. AI 生成 vs 手写 Baseline 对比
 9. 中文 vs 英文 vs 俄文 Prompt 效果对比
 10. 结论与总结
@@ -138,9 +152,9 @@ for file in os.listdir(path):
 
 | 角色 | 负责 |
 |---|---|
-| A — 数据 + Baseline | 下载数据、EDA、手写 MLP+RF + PI + FGSM 全链路 |
-| B — GPT 对话者 | 设计 Prompt、与 GPT 迭代对话、收集各版本生成代码 |
-| C — Claude 对话者 | 用相同 Prompt 与 Claude 迭代对话、收集各版本生成代码 |
+| A — 数据 + Baseline | 下载数据、EDA、手写 MLP+RF + PI + PGD 风格攻击全链路 |
+| B — gpt-5.5 对话者 | 设计 Prompt、与 gpt-5.5 迭代对话、收集中 / 英 / 俄版本生成代码 |
+| C — DS_V4pro 对话者 | 用相同 Prompt 与 DS_V4pro 迭代对话、收集中 / 英 / 俄版本生成代码 |
 | D — 实验 + 报告 | 跑全部对比实验、画图表、写报告、做 PPT |
 
 ---
@@ -149,9 +163,9 @@ for file in os.listdir(path):
 
 - [ ] GitHub 仓库（包含以下所有内容）
 - [ ] Prompt（中文 + 英文 + 俄文三版，语义等价）
-- [ ] 手写 Baseline（MLP+RF 分类器 + PI 解释 + FGSM 攻击）
-- [ ] 至少 2 个 LLM 各生成的多版本代码
-- [ ] 对比实验结果（GPT vs Claude vs Baseline）
+- [ ] 手写 Baseline（MLP+RF 分类器 + PI 解释 + PGD 风格攻击）
+- [ ] 至少 2 个 LLM 各生成的三语版本代码（当前主线为 `gpt-5.5` 与 `DS_V4pro`）
+- [ ] 对比实验结果（gpt-5.5 vs DS_V4pro vs Baseline）
 - [ ] 中文 vs 英文 vs 俄文 Prompt 效果对比
 - [ ] 结果分析文档
 - [ ] 研讨会答辩 PPT（≤ 10 页）
@@ -165,61 +179,47 @@ repository/
 │
 ├── README.md                    # 仓库总说明：任务背景、组成员、结果摘要
 │
-├── data/
-│   ├── CTU-IoT-Malware-Capture-1-1conn.log.labeled.csv   # 原始数据文件（管道分隔）
+├── data/                         # 原始数据文件，本地存在但被 .gitignore 忽略
+│   ├── CTU-IoT-Malware-Capture-1-1conn.log.labeled.csv
 │   ├── CTU-IoT-Malware-Capture-3-1conn.log.labeled.csv
-│   ├── ...（共 12 个文件，约 25M 条记录）
-│   └── download.py               # kagglehub 自动下载脚本
+│   └── ...（共 12 个文件，约 25M 条记录）
 │
 ├── baseline/                    # 手写基准代码，用于和 LLM 生成代码对比
-│   ├── classifier.py            #   手写 MLP + Random Forest 分类器，含预处理和评估
-│   ├── permutation_importance.py #  手写 Permutation Importance 分析
-│   └── fgsm_attack.py           #   手写 FGSM 对抗攻击
+│   ├── download_data.py          #   kagglehub 自动下载脚本
+│   ├── baseline_simple.py        #   Random Forest 简版 baseline
+│   ├── baseline_with_mlp.py      #   加入 MLP 分类器
+│   ├── baseline_with_importance.py # Random Forest Permutation Importance
+│   ├── baseline_full.py          #   完整流程版本
+│   ├── baseline_final.py         #   当前优化版：分类 + PGD 风格攻击
+│   ├── results/                  #   baseline 指标 CSV
+│   └── plots/                    #   baseline 图表 PNG
 │
-├── prompts/                     # 三个语言的 Prompt，各版本按迭代编号
+├── prompts/                     # 三个语言的 Prompt
 │   ├── zh/                      #   中文 Prompt
-│   │   ├── prompt_v1.md         #     第一版（原始版本）
-│   │   ├── prompt_v2.md         #     第二版（根据迭代修改）
-│   │   └── ...
+│   │   └── prompt_v1.md
 │   ├── en/                      #   英文 Prompt（与中文语义等价）
-│   │   └── ...
+│   │   └── prompt_v1.md
 │   └── ru/                      #   俄文 Prompt（与中文语义等价）
-│       └── ...
+│       └── prompt_v1.md
 │
-├── generated_code/              # LLM 生成的代码，按 LLM 和版本号组织
-│   ├── gpt/                     #   ChatGPT 生成
-│   │   ├── v1/                  #     第一版生成结果
-│   │   │   └── program.py       #       单文件，含分类 + PI + FGSM 三部分
-│   │   ├── v2/
-│   │   └── ...
-│   └── claude/                  #   Claude 生成
-│       ├── v1/
-│       ├── v2/
-│       └── ...
+├── generated_code/              # LLM 生成的代码，按模型和语言组织
+│   ├── gpt-5.5/
+│   │   ├── en_v1/
+│   │   │   ├── prompt_v1.py
+│   │   │   └── plots/
+│   │   ├── zh_v1/
+│   │   └── ru_v1/
+│   └── DS_V4pro/
+│       ├── en_v1/
+│       ├── zh_v1/
+│       └── ru_v1/
 │
-├── results/                     # 对比实验结果
-│   ├── baseline_metrics.csv     #   手写 Baseline 的指标记录
-│   ├── gpt_metrics.csv          #   GPT 各版本的指标记录
-│   ├── claude_metrics.csv       #   Claude 各版本的指标记录
-│   └── comparison_charts/       #   对比图表（柱状图、折线图等）
-│       ├── gpt_vs_claude_acc.png
-│       ├── gpt_vs_baseline_f1.png
-│       └── ...
+├── materials/                   # 流程文档与课程/论文参考资料
+│   ├── proccess.md
+│   ├── IOT_ПОВС-2026.pdf
+│   └── obyasneniya-modeley-mashinnogo-obucheniya-i-sostyazatelnye-ataki.pdf
 │
-├── plots/                       # 各版本生成的图表输出
-│   ├── gpt/
-│   │   ├── v1/                  #   GPT v1 生成的 PNG 图表
-│   │   └── ...
-│   └── claude/
-│       └── ...
-│
-├── docs/                        # 文档
-│   ├── report.md                #   最终结果分析报告
-│   └── presentation.pptx        #   答辩 PPT
-│
-└── reference/                   # 参考资料
-    ├── IOT_ПОВС-2026.pdf        #   课程任务说明
-    └── 2025_paper.pdf           #   2025 届论文（Егоров 等）
+└── requirements.txt             # Python 依赖
 ```
 
 ### 各目录用途一句话说明
@@ -229,12 +229,12 @@ repository/
 | `README.md` | 仓库首页，写清楚"做了什么、怎么做、结果如何"，答辩时老师第一眼看这里 |
 | `data/` | 存放原始数据集，只读不写 |
 | `baseline/` | 人工手写的完整代码，作为衡量 LLM 能力的标尺 |
-| `prompts/` | 三个语言版本的 prompt，记录每次迭代的修改历史 |
+| `prompts/` | 三个语言版本的 prompt，当前保留 `prompt_v1.md` |
 | `generated_code/` | LLM 按 prompt 生成的代码，按 LLM 和版本号分目录存放 |
-| `results/` | 所有对比实验的数值结果和图表，写报告和 PPT 时直接从这里取数据 |
-| `plots/` | 各版本代码运行时输出的 PNG 图表，方便回头查看不用重跑 |
-| `docs/` | 最终交付物——分析报告和答辩 PPT |
-| `reference/` | 课程任务书和参考论文，答辩时可能需要引用 |
+| `baseline/results/` | 手写 baseline 的数值结果，写报告和 PPT 时可直接引用 |
+| `baseline/plots/` | 手写 baseline 输出的 PNG 图表 |
+| `generated_code/<model>/<language_version>/plots/` | 各 LLM 生成脚本运行后输出的 PNG 图表 |
+| `materials/` | 课程任务书、参考论文和本流程说明，答辩时可能需要引用 |
 
 ## 参考
 

@@ -1,8 +1,3 @@
-epsilon,success_rate
-0.5,0.002
-1.0,0.002
-2.0,0.002
-3.0,0.002
-5.0,0.002
-8.0,0.002
-10.0,0.002
+version https://git-lfs.github.com/spec/v1
+oid sha256:e2a27969c77b83406a09e6212543cceeef119d678b75d63c20368ce6e176d1e4
+size 100

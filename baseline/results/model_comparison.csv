@@ -1,3 +1,3 @@
-model,accuracy,f1
-RandomForest,0.9996833333333334,0.9996834230301415
-MLP,0.9990333333333333,0.9990342347142667
+version https://git-lfs.github.com/spec/v1
+oid sha256:76a7763cb413ac2169db47acde87ab87c9cc3e1a75b20c08681e44ad4a2f36dc
+size 114

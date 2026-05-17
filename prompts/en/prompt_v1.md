@@ -198,11 +198,51 @@ Core formula: **x_adv = x + ε · sign(∇_x L(x, y))**
 - Use functions to encapsulate each step, with semantically clear function names
 - Print progress information at key steps so users can track runtime progress
 - At the start of each part, print a brief explanation of the method's principle
-- Save all plots as PNG files in a `plots/` directory
+- Save all plots as PNG files in a `plots/` directory (next to the `.py` file)
 - Use `argparse` to support command-line arguments:
   - `--data_path`: dataset directory path, default `data/` (reads all CSV files from this directory)
   - `--test_size`: test set proportion, default 0.2
   - `--epsilon`: FGSM perturbation strength, default 0.05 (if specified, skip ε sweep and use this value directly)
+
+## Output Directory Convention
+
+- The generated `.py` program should be placed under `generated_code/{model_name}/{language}_{version}/`
+  - Example: `generated_code/DS_V4pro/zh_v1/prompt_v1.py` (DS V4pro model + Chinese + v1)
+- At runtime, all PNG plots should be output to the `plots/` subdirectory next to the script
+  - Example: `generated_code/DS_V4pro/zh_v1/plots/`
+- Use `os.path.dirname(os.path.abspath(__file__))` to locate the script's directory, ensuring `plots/` is relative to the script
+
+---
+
+## Summary Comparison Table
+
+At the end of the program, generate a **comprehensive analysis summary table** (PNG format) using matplotlib's `table` functionality to aggregate all key results for easy inclusion in papers or reports.
+
+The table should contain four sections:
+
+### Table Content
+
+| Section | Rows |
+| --- | --- |
+| **Model Performance Comparison** | Accuracy, Precision, Recall, F1-score displayed side-by-side for MLP / RF / MLP (after attack) |
+| **Adversarial Attack Impact** | Best ε, attack success rate, MLP F1 drop percentage |
+| **Feature Importance Top-10** | MLP ∩ RF intersection count (e.g., 8/10), MLP Top-3 feature names, RF Top-3 feature names |
+| **Conclusion** | Best model name and F1, MLP robustness assessment (FGSM F1 drop percentage) |
+
+### Style Requirements
+
+- Use matplotlib to render, save as `plots/summary_table.png`, DPI ≥ 200
+- Header row: blue background (`#4472C4`) with white text; section title rows: light blue background (`#D9E2F3`) with bold text
+- Four columns: `Metric`, `MLP`, `Random Forest`, `MLP (after attack)`
+- Table title: "Network Traffic Malware Detection — Comprehensive Analysis Summary"
+
+### Font Requirements
+
+- Must configure Chinese-compatible fonts to avoid garbled text:
+  - macOS: `PingFang SC`
+  - Windows: `Microsoft YaHei`
+  - Linux: `WenQuanYi Micro Hei` or `Noto Sans CJK SC`
+- Set `axes.unicode_minus = False` to fix minus sign rendering
 
 ---
 
@@ -258,4 +298,9 @@ Part 3: FGSM White-Box Adversarial Attack
 [3.5] Conclusion: FGSM white-box attack reduced MLP F1 from 0.936 to 0.507,
   a drop of 45.8%. Although MLP has gradients available (enabling white-box
   attacks), the model itself lacks resistance to small perturbations.
+
+========================================
+Summary Comparison Table
+========================================
+  Summary table saved: plots/summary_table.png
 ```

@@ -18,6 +18,16 @@ import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use("Agg")  # 无 GUI 后端
 
+# 配置中文字体，解决图表中文乱码
+import platform
+if platform.system() == "Darwin":
+    matplotlib.rcParams["font.sans-serif"] = ["PingFang SC", "Heiti SC", "STHeiti"]
+elif platform.system() == "Windows":
+    matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
+else:
+    matplotlib.rcParams["font.sans-serif"] = ["WenQuanYi Micro Hei", "Noto Sans CJK SC"]
+matplotlib.rcParams["axes.unicode_minus"] = False  # 解决负号显示异常
+
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
@@ -701,6 +711,89 @@ def plot_attack_confusion_matrix(y_true, y_pred, plots_dir):
 
 
 # ============================================================================
+# 综合对比表格
+# ============================================================================
+def plot_summary_table(mlp_results, rf_results, attack_metrics_after,
+                       mlp_top_dict, rf_top_dict, best_eps, success_rate, plots_dir):
+    """生成综合对比总结表格，保存为 PNG"""
+    fig, ax = plt.subplots(figsize=(14, 8))
+    ax.axis("off")
+
+    col_labels = ["指标", "MLP", "Random Forest", "MLP (攻击后)"]
+    cell_text = []
+
+    # ---- 模型性能对比 ----
+    cell_text.append(["—— 模型性能对比 ——", "", "", ""])
+    for label, key in [("Accuracy", "acc"), ("Precision", "prec"),
+                        ("Recall", "rec"), ("F1-score", "f1")]:
+        cell_text.append([
+            label,
+            f"{mlp_results[key]:.4f}",
+            f"{rf_results[key]:.4f}",
+            f"{attack_metrics_after[key]:.4f}"
+        ])
+
+    # ---- 对抗攻击影响 ----
+    cell_text.append(["—— 对抗攻击影响 (ε={:.2f}) ——".format(best_eps), "", "", ""])
+    cell_text.append(["攻击成功率", f"{success_rate*100:.1f}%", "N/A (树模型)", ""])
+    f1_drop = (mlp_results["f1"] - attack_metrics_after["f1"]) / mlp_results["f1"] * 100
+    cell_text.append(["F1 下降幅度", f"{f1_drop:.1f}%", "N/A", ""])
+
+    # ---- Top 特征交集 ----
+    cell_text.append(["—— 特征重要性 Top-10 ——", "", "", ""])
+    intersection = set(mlp_top_dict.keys()) & set(rf_top_dict.keys())
+    cell_text.append(["MLP ∩ RF 交集", f"{len(intersection)}/10", "", ""])
+    mlp_top3 = list(mlp_top_dict.keys())[:3]
+    rf_top3 = list(rf_top_dict.keys())[:3]
+    cell_text.append(["MLP Top-3", ", ".join(mlp_top3), "", ""])
+    cell_text.append(["RF Top-3", ", ".join(rf_top3), "", ""])
+
+    # ---- 最佳模型 ----
+    best_name = "MLP" if mlp_results["f1"] >= rf_results["f1"] else "Random Forest"
+    best_f1 = max(mlp_results["f1"], rf_results["f1"])
+    cell_text.append(["—— 结论 ——", "", "", ""])
+    cell_text.append(["最佳分类模型", f"{best_name} (F1={best_f1:.4f})", "", ""])
+    cell_text.append(["MLP 鲁棒性", f"FGSM(ε={best_eps:.2f})后 F1 下降 {f1_drop:.1f}%", "", ""])
+
+    # 绘制表格
+    n_rows = len(cell_text)
+    table = ax.table(
+        cellText=cell_text,
+        colLabels=col_labels,
+        cellLoc="center",
+        loc="center",
+    )
+
+    # 样式
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.2, 1.5)
+
+    for (row, col), cell in table.get_celld().items():
+        cell.set_linewidth(0.5)
+        if row == 0:
+            # 表头
+            cell.set_facecolor("#4472C4")
+            cell.set_text_props(color="white", fontweight="bold", fontsize=11)
+        elif "结论" in str(cell.get_text()):
+            cell.set_facecolor("#D9E2F3")
+            cell.set_text_props(fontweight="bold")
+        elif any(kw in str(cell.get_text()) for kw in ["性能对比", "攻击影响", "特征重要性"]):
+            cell.set_facecolor("#D9E2F3")
+            cell.set_text_props(fontweight="bold")
+
+    ax.set_title("网络流量恶意软件检测 —— 综合分析总结表",
+                 fontsize=14, fontweight="bold", pad=20)
+
+    plt.tight_layout()
+    path = os.path.join(plots_dir, "summary_table.png")
+    fig.savefig(path, dpi=200, bbox_inches="tight",
+                facecolor=fig.get_facecolor(), edgecolor="none")
+    plt.close(fig)
+    print(f"\n综合对比表格已保存: {path}")
+
+
+# ============================================================================
 # 主流程
 # ============================================================================
 def main():
@@ -829,6 +922,7 @@ def main():
     if args.epsilon is not None:
         # 直接使用指定 ε
         print(f"\n[3.3] 使用指定 ε = {args.epsilon}")
+        best_eps = args.epsilon
         X_adv, y_pred_adv, success_rate, l2_dist = fgsm_attack(
             mlp_model, X_malicious, y_malicious, args.epsilon
         )
@@ -914,6 +1008,13 @@ def main():
     print(f"\n  结论：FGSM 白盒攻击使 MLP 的 F1 从 {f1_before:.4f} 降至 {f1_after:.4f}，")
     print(f"  下降 {f1_drop_pct:.1f}%。MLP 虽然有梯度可用（能用白盒攻击），")
     print(f"  但模型本身对微小扰动缺乏抵抗力。")
+
+    # 综合对比表格
+    plot_summary_table(
+        mlp_results, rf_results, attack_metrics_after,
+        mlp_top_dict, rf_top_dict,
+        best_eps, success_rate, plots_dir
+    )
 
     print("\n" + "=" * 60)
     print("全部分析完成！")

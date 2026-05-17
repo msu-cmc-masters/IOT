@@ -15,48 +15,48 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# 获取当前文件所在目录
+# Get current file directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 
-# 创建结果和图表目录（在 baseline 下）
+# Create results and plots directories (under baseline/)
 results_dir = os.path.join(current_dir, 'results')
 plots_dir = os.path.join(current_dir, 'plots')
 os.makedirs(results_dir, exist_ok=True)
 os.makedirs(plots_dir, exist_ok=True)
 
-# 设置设备
+# Set device
 device = torch.device("cuda" if torch.cuda.is_available()
                       else "mps" if torch.backends.mps.is_available()
-else "cpu")
-print(f"使用设备: {device}")
+                      else "cpu")
+print(f"Using device: {device}")
 
 print("=" * 60)
-print("攻击优化版: 删除 ts 特征 + 强化 PGD 攻击")
+print("Attack Optimized: Remove ts Feature + Enhanced PGD Attack")
 print("=" * 60)
 
 # ============================================
-# 1. 读取所有 CSV 文件
+# 1. Read all CSV files
 # ============================================
-print("\n[1] 读取所有 CSV 文件...")
+print("\n[1] Reading all CSV files...")
 
 data_path = os.path.join(project_root, 'data')
 all_files = glob.glob(os.path.join(data_path, '*.csv'))
-print(f"找到 {len(all_files)} 个 CSV 文件")
+print(f"Found {len(all_files)} CSV files")
 
 dfs = []
 for file in all_files:
-    print(f"  读取: {os.path.basename(file)}")
+    print(f"  Reading: {os.path.basename(file)}")
     df = pd.read_csv(file, sep='|')
     dfs.append(df)
 
 df_merged = pd.concat(dfs, ignore_index=True)
-print(f"合并后数据形状: {df_merged.shape}")
+print(f"Merged data shape: {df_merged.shape}")
 
 # ============================================
-# 2. 数据预处理
+# 2. Data preprocessing
 # ============================================
-print("\n[2] 数据预处理...")
+print("\n[2] Data preprocessing...")
 
 drop_cols = ['uid', 'id.orig_h', 'id.resp_h', 'tunnel_parents', 'detailed-label']
 drop_cols = [c for c in drop_cols if c in df_merged.columns]
@@ -78,12 +78,12 @@ for col in categorical_cols:
     df_merged[col] = LabelEncoder().fit_transform(df_merged[col].astype(str))
 
 df_merged['label_binary'] = (df_merged['label'] != 'Benign').astype(int)
-print(f"标签分布: 正常={sum(df_merged['label_binary'] == 0):,}, 恶意={sum(df_merged['label_binary'] == 1):,}")
+print(f"Label distribution: Benign={sum(df_merged['label_binary'] == 0):,}, Malicious={sum(df_merged['label_binary'] == 1):,}")
 
 # ============================================
-# 3. 采样并删除 ts 特征
+# 3. Sampling and remove ts feature
 # ============================================
-print("\n[3] 采样并删除时间戳特征...")
+print("\n[3] Sampling and remove timestamp feature...")
 
 SAMPLE_SIZE = 50000
 benign = df_merged[df_merged['label_binary'] == 0].sample(
@@ -94,14 +94,14 @@ df_sample = pd.concat([benign, malicious], ignore_index=True)
 
 if 'ts' in df_sample.columns:
     df_sample = df_sample.drop(columns=['ts'])
-    print("  已删除 ts（时间戳）特征")
+    print("  Removed ts (timestamp) feature")
 
-print(f"采样后: {df_sample.shape}")
+print(f"Sampled data shape: {df_sample.shape}")
 
 # ============================================
-# 4. 准备数据
+# 4. Prepare data
 # ============================================
-print("\n[4] 准备训练数据...")
+print("\n[4] Prepare training data...")
 
 feature_cols = [c for c in df_sample.columns if c not in ['label_binary', 'label']]
 feature_names = feature_cols
@@ -112,11 +112,11 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42, stratify=y)
-print(f"训练集: {X_train.shape}, 测试集: {X_test.shape}")
+print(f"Train set: {X_train.shape}, Test set: {X_test.shape}")
 
 
 # ============================================
-# 5. MLP 模型定义
+# 5. MLP Model Definition
 # ============================================
 
 class MLP(nn.Module):
@@ -180,9 +180,9 @@ class MLPWrapper:
 
 
 # ============================================
-# 6. 训练 Random Forest
+# 6. Train Random Forest
 # ============================================
-print("\n[5] 训练 Random Forest...")
+print("\n[5] Training Random Forest...")
 rf = RandomForestClassifier(n_estimators=100, max_depth=15, random_state=42, n_jobs=-1)
 rf.fit(X_train, y_train)
 y_pred_rf = rf.predict(X_test)
@@ -194,9 +194,9 @@ rf_metrics = {
 print(f"RF: Acc={rf_metrics['accuracy']:.4f}, F1={rf_metrics['f1']:.4f}")
 
 # ============================================
-# 7. 训练 MLP
+# 7. Train MLP
 # ============================================
-print("\n[6] 训练 MLP...")
+print("\n[6] Training MLP...")
 mlp = MLPWrapper(input_dim=X_train.shape[1], hidden_layers=[64, 32, 16], lr=0.001, epochs=30)
 mlp.fit(X_train, y_train)
 y_pred_mlp = mlp.predict(X_test)
@@ -208,12 +208,13 @@ mlp_metrics = {
 print(f"MLP: Acc={mlp_metrics['accuracy']:.4f}, F1={mlp_metrics['f1']:.4f}")
 
 # ============================================
-# 8. PGD 攻击
+# 8. PGD Attack
 # ============================================
-print("\n[7] 强化 PGD 攻击...")
+print("\n[7] Enhanced PGD Attack...")
 
 
 def pgd_attack(model, X, epsilon, alpha, num_iter, target_label=0):
+    """PGD attack: make model predict target_label (0=Benign)"""
     model.model.eval()
     X_tensor = torch.FloatTensor(X).to(device)
     X_adv = X_tensor.clone().detach()
@@ -242,7 +243,7 @@ def pgd_attack(model, X, epsilon, alpha, num_iter, target_label=0):
 
 malicious_mask = y_test == 1
 X_malicious = X_test[malicious_mask]
-print(f"  恶意样本数量: {X_malicious.shape[0]}")
+print(f"  Malicious samples: {X_malicious.shape[0]}")
 
 epsilons = [0.5, 1.0, 2.0, 3.0, 5.0, 8.0, 10.0]
 alpha = 0.05
@@ -250,18 +251,18 @@ num_iter = 100
 
 attack_results = []
 
-print("\n  扫描不同 epsilon 值 (PGD, iter=100):")
+print("\n  Scanning different epsilon values (PGD, iter=100):")
 for epsilon in epsilons:
-    print(f"    测试 ε={epsilon:.1f}:")
+    print(f"    Testing ε={epsilon:.1f}:")
     X_adv = pgd_attack(mlp, X_malicious, epsilon, alpha, num_iter, target_label=0)
     y_pred_adv = mlp.predict(X_adv)
     success_rate = np.mean(y_pred_adv == 0)
     attack_results.append({'epsilon': epsilon, 'success_rate': success_rate})
-    print(f"    最终 ε={epsilon:.1f}: 攻击成功率={success_rate:.2%}")
+    print(f"    Final ε={epsilon:.1f}: Attack success rate={success_rate:.2%}")
 
 best_epsilon = max(attack_results, key=lambda x: x['success_rate'])['epsilon']
 
-print(f"\n  选择最佳 ε={best_epsilon}")
+print(f"\n  Selected best ε={best_epsilon}")
 
 X_adv_best = pgd_attack(mlp, X_malicious, best_epsilon, alpha, num_iter, target_label=0)
 y_pred_adv_best = mlp.predict(X_adv_best)
@@ -275,21 +276,21 @@ after_metrics = {
     'f1': f1_score(y_test, y_pred_after)
 }
 
-print(f"\n  攻击后 MLP 指标:")
-print(f"    准确率: {after_metrics['accuracy']:.4f}")
-print(f"    F1分数: {after_metrics['f1']:.4f}")
+print(f"\n  MLP Metrics After Attack:")
+print(f"    Accuracy: {after_metrics['accuracy']:.4f}")
+print(f"    F1-Score: {after_metrics['f1']:.4f}")
 
 # ============================================
-# 9. 保存结果和图表
+# 9. Save results and plots
 # ============================================
-print("\n[8] 保存结果...")
+print("\n[8] Saving results...")
 
-# 保存攻击结果图
+# Save attack results plot
 plt.figure(figsize=(10, 6))
 eps = [r['epsilon'] for r in attack_results]
 rates = [r['success_rate'] * 100 for r in attack_results]
 plt.plot(eps, rates, 'bo-', linewidth=2, markersize=8)
-plt.axhline(y=50, color='r', linestyle='--', label='50% 成功率阈值')
+plt.axhline(y=50, color='r', linestyle='--', label='50% Success Threshold')
 plt.xlabel('Epsilon (ε)')
 plt.ylabel('Attack Success Rate (%)')
 plt.title(f'PGD Attack Success Rate vs Epsilon (iter={num_iter})')
@@ -298,7 +299,7 @@ plt.legend()
 plt.savefig(os.path.join(plots_dir, 'pgd_attack_results_optimized.png'), dpi=150, bbox_inches='tight')
 plt.close()
 
-# 保存攻击前后对比图
+# Save performance comparison plot
 metrics_names = ['Accuracy', 'F1-Score']
 before_values = [mlp_metrics['accuracy'] * 100, mlp_metrics['f1'] * 100]
 after_values = [after_metrics['accuracy'] * 100, after_metrics['f1'] * 100]
@@ -319,7 +320,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(plots_dir, 'attack_performance_comparison.png'), dpi=150, bbox_inches='tight')
 plt.close()
 
-# 保存 CSV 结果
+# Save CSV results
 comparison_df = pd.DataFrame([
     {'model': 'RandomForest', 'accuracy': rf_metrics['accuracy'], 'f1': rf_metrics['f1']},
     {'model': 'MLP_Before_Attack', 'accuracy': mlp_metrics['accuracy'], 'f1': mlp_metrics['f1']},
@@ -330,14 +331,14 @@ comparison_df.to_csv(os.path.join(results_dir, 'model_comparison_attack.csv'), i
 attack_df = pd.DataFrame(attack_results)
 attack_df.to_csv(os.path.join(results_dir, 'pgd_results_optimized.csv'), index=False)
 
-print(f"结果已保存到 {results_dir}/")
-print(f"图表已保存到 {plots_dir}/")
+print(f"Results saved to {results_dir}/")
+print(f"Plots saved to {plots_dir}/")
 
 print("\n" + "=" * 60)
-print("攻击优化版 Baseline 运行完成！")
+print("Attack Optimized Baseline Complete!")
 print("=" * 60)
 
-print("\n最终对比:")
+print("\nFinal Comparison:")
 print(f"  Random Forest:         Acc={rf_metrics['accuracy']:.4f}, F1={rf_metrics['f1']:.4f}")
-print(f"  MLP (攻击前):           Acc={mlp_metrics['accuracy']:.4f}, F1={mlp_metrics['f1']:.4f}")
-print(f"  MLP (PGD攻击后):        Acc={after_metrics['accuracy']:.4f}, F1={after_metrics['f1']:.4f}")
+print(f"  MLP (Before Attack):   Acc={mlp_metrics['accuracy']:.4f}, F1={mlp_metrics['f1']:.4f}")
+print(f"  MLP (After PGD):       Acc={after_metrics['accuracy']:.4f}, F1={after_metrics['f1']:.4f}")

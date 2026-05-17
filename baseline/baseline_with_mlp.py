@@ -14,44 +14,44 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# 获取当前文件所在目录
+# Get current file directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 
-# 创建结果目录（在 baseline 下）
+# Create results directory (under baseline/)
 results_dir = os.path.join(current_dir, 'results')
 os.makedirs(results_dir, exist_ok=True)
 
-# 设置设备
+# Set device
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-print(f"使用设备: {device}")
+print(f"Using device: {device}")
 
 print("=" * 60)
-print("Baseline: Random Forest + MLP 对比")
+print("Baseline: Random Forest + MLP Comparison")
 print("=" * 60)
 
 # ============================================
-# 1. 读取所有 CSV 文件
+# 1. Read all CSV files
 # ============================================
-print("\n[1] 读取所有 CSV 文件...")
+print("\n[1] Reading all CSV files...")
 
 data_path = os.path.join(project_root, 'data')
 all_files = glob.glob(os.path.join(data_path, '*.csv'))
-print(f"找到 {len(all_files)} 个 CSV 文件")
+print(f"Found {len(all_files)} CSV files")
 
 dfs = []
 for file in all_files:
-    print(f"  读取: {os.path.basename(file)}")
+    print(f"  Reading: {os.path.basename(file)}")
     df = pd.read_csv(file, sep='|')
     dfs.append(df)
 
 df_merged = pd.concat(dfs, ignore_index=True)
-print(f"合并后数据形状: {df_merged.shape}")
+print(f"Merged data shape: {df_merged.shape}")
 
 # ============================================
-# 2. 数据预处理
+# 2. Data preprocessing
 # ============================================
-print("\n[2] 数据预处理...")
+print("\n[2] Data preprocessing...")
 
 drop_cols = ['uid', 'id.orig_h', 'id.resp_h', 'tunnel_parents', 'detailed-label']
 drop_cols = [c for c in drop_cols if c in df_merged.columns]
@@ -73,12 +73,12 @@ for col in categorical_cols:
     df_merged[col] = LabelEncoder().fit_transform(df_merged[col].astype(str))
 
 df_merged['label_binary'] = (df_merged['label'] != 'Benign').astype(int)
-print(f"标签分布: 正常={sum(df_merged['label_binary'] == 0):,}, 恶意={sum(df_merged['label_binary'] == 1):,}")
+print(f"Label distribution: Benign={sum(df_merged['label_binary'] == 0):,}, Malicious={sum(df_merged['label_binary'] == 1):,}")
 
 # ============================================
-# 3. 采样
+# 3. Sampling
 # ============================================
-print("\n[3] 采样...")
+print("\n[3] Sampling...")
 
 SAMPLE_SIZE = 100000
 benign = df_merged[df_merged['label_binary'] == 0].sample(
@@ -86,12 +86,12 @@ benign = df_merged[df_merged['label_binary'] == 0].sample(
 malicious = df_merged[df_merged['label_binary'] == 1].sample(
     n=min(SAMPLE_SIZE, len(df_merged[df_merged['label_binary'] == 1])), random_state=42)
 df_sample = pd.concat([benign, malicious], ignore_index=True)
-print(f"采样后: {df_sample.shape}")
+print(f"Sampled data shape: {df_sample.shape}")
 
 # ============================================
-# 4. 准备数据
+# 4. Prepare data
 # ============================================
-print("\n[4] 准备训练数据...")
+print("\n[4] Prepare training data...")
 
 feature_cols = [c for c in df_sample.columns if c not in ['label_binary', 'label']]
 X = df_sample[feature_cols].values
@@ -101,11 +101,11 @@ scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42, stratify=y)
-print(f"训练集: {X_train.shape}, 测试集: {X_test.shape}")
+print(f"Train set: {X_train.shape}, Test set: {X_test.shape}")
 
 
 # ============================================
-# 5. MLP 模型
+# 5. MLP Model Definition
 # ============================================
 
 class MLP(nn.Module):
@@ -165,9 +165,9 @@ class MLPWrapper:
 
 
 # ============================================
-# 6. 训练 Random Forest
+# 6. Train Random Forest
 # ============================================
-print("\n[5] 训练 Random Forest...")
+print("\n[5] Training Random Forest...")
 rf = RandomForestClassifier(n_estimators=100, max_depth=20, random_state=42, n_jobs=-1)
 rf.fit(X_train, y_train)
 y_pred_rf = rf.predict(X_test)
@@ -179,9 +179,9 @@ rf_metrics = {
 print(f"RF: Acc={rf_metrics['accuracy']:.4f}, F1={rf_metrics['f1']:.4f}")
 
 # ============================================
-# 7. 训练 MLP
+# 7. Train MLP
 # ============================================
-print("\n[6] 训练 MLP...")
+print("\n[6] Training MLP...")
 mlp = MLPWrapper(input_dim=X_train.shape[1], hidden_layers=[128, 64], lr=0.001, epochs=30)
 mlp.fit(X_train, y_train)
 y_pred_mlp = mlp.predict(X_test)
@@ -193,19 +193,19 @@ mlp_metrics = {
 print(f"MLP: Acc={mlp_metrics['accuracy']:.4f}, F1={mlp_metrics['f1']:.4f}")
 
 # ============================================
-# 8. 保存结果
+# 8. Save results
 # ============================================
-print("\n[7] 保存结果...")
+print("\n[7] Saving results...")
 
 comparison_df = pd.DataFrame([
     {'model': 'RandomForest', 'accuracy': rf_metrics['accuracy'], 'f1': rf_metrics['f1']},
     {'model': 'MLP', 'accuracy': mlp_metrics['accuracy'], 'f1': mlp_metrics['f1']}
 ])
 comparison_df.to_csv(os.path.join(results_dir, 'model_comparison.csv'), index=False)
-print(f"结果已保存到 {results_dir}/model_comparison.csv")
+print(f"Results saved to {results_dir}/model_comparison.csv")
 
 print("\n" + "=" * 60)
-print("对比结果:")
+print("Comparison Results:")
 print(f"  Random Forest: Acc={rf_metrics['accuracy']:.4f}, F1={rf_metrics['f1']:.4f}")
 print(f"  MLP:           Acc={mlp_metrics['accuracy']:.4f}, F1={mlp_metrics['f1']:.4f}")
 print("=" * 60)

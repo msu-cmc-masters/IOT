@@ -80,10 +80,7 @@ python download_data.py
 │   └── plots/
 ├── generated_code/
 │   ├── gpt-5.5/
-│   ├── DS_V4pro/
-│   ├── glm-5.1/
-│   ├── kimi-k2.6/
-│   └── minimax-m2.7/
+│   └── DS_V4pro/
 └── materials/
     ├── proccess.md
     └── reference PDFs
@@ -160,8 +157,6 @@ Generated plots are available in:
 | English         | `prompts/en/prompt_v1.md` | `generated_code/gpt-5.5/en_v1/`, `generated_code/DS_V4pro/en_v1/` |
 | Chinese         | `prompts/zh/prompt_v1.md` | `generated_code/gpt-5.5/zh_v1/`, `generated_code/DS_V4pro/zh_v1/` |
 | Russian         | `prompts/ru/prompt_v1.md` | `generated_code/gpt-5.5/ru_v1/`, `generated_code/DS_V4pro/ru_v1/` |
-
-Additional Chinese-output experiments are stored under `generated_code/glm-5.1/`, `generated_code/kimi-k2.6/`, and `generated_code/minimax-m2.7/`.
 
 ## Output Convention
 

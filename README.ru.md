@@ -80,10 +80,7 @@ python download_data.py
 │   └── plots/
 ├── generated_code/
 │   ├── gpt-5.5/
-│   ├── DS_V4pro/
-│   ├── glm-5.1/
-│   ├── kimi-k2.6/
-│   └── minimax-m2.7/
+│   └── DS_V4pro/
 └── materials/
     ├── proccess.md
     └── reference PDFs
@@ -160,8 +157,6 @@ python generated_code/gpt-5.5/en_v1/prompt_v1.py
 | Английский    | `prompts/en/prompt_v1.md` | `generated_code/gpt-5.5/en_v1/`, `generated_code/DS_V4pro/en_v1/` |
 | Китайский      | `prompts/zh/prompt_v1.md` | `generated_code/gpt-5.5/zh_v1/`, `generated_code/DS_V4pro/zh_v1/` |
 | Русский          | `prompts/ru/prompt_v1.md` | `generated_code/gpt-5.5/ru_v1/`, `generated_code/DS_V4pro/ru_v1/` |
-
-Дополнительные эксперименты с китайскими промптами находятся в `generated_code/glm-5.1/`, `generated_code/kimi-k2.6/` и `generated_code/minimax-m2.7/`.
 
 ## Соглашение о выходных файлах
 
